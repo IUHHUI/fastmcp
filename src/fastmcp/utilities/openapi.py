@@ -23,6 +23,7 @@ from openapi_pydantic.v3.v3_0 import RequestBody as RequestBody_30
 from openapi_pydantic.v3.v3_0 import Response as Response_30
 from openapi_pydantic.v3.v3_0 import Schema as Schema_30
 from pydantic import BaseModel, Field, ValidationError
+from urllib.parse import unquote
 
 from fastmcp.utilities.json_schema import compress_schema
 from fastmcp.utilities.types import FastMCPBaseModel
@@ -213,7 +214,9 @@ class OpenAPIParser(
                         f"External or non-local reference not supported: {ref_str}"
                     )
 
-                parts = ref_str.strip("#/").split("/")
+                # ref_str='#/components/schemas/%E8%B4%A2%E5%8A%A1%E4%B8%89%E5%A4%A7%E6%8A%A5%E8%A1%A8%E5%8F%82%E6%95%B0'
+                ref_str_parts = ref_str.strip("#/").split("/")
+                parts = [unquote(part) for part in ref_str_parts]
                 target = self.openapi
 
                 for part in parts:
