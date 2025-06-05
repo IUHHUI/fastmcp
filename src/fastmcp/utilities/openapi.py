@@ -564,13 +564,16 @@ class OpenAPIParser(
                                 f"Multiple request bodies found for operation {path_str}. "
                             )
                             for i, request_body_info in enumerate(request_body_infos):
+                                summary = getattr(operation, "summary", None)
+                                if summary:
+                                    summary += f" {get_title_from_request_body(request_body_info)}"
                                 route = HTTPRoute(
                                     path=path_str,
                                     method=method_upper,  # type: ignore[arg-type]  # Known valid HTTP method
                                     operation_id=getattr(
                                         operation, "operationId", None
                                     ),
-                                    summary=getattr(operation, "summary", None),
+                                    summary=summary,
                                     description=getattr(operation, "description", None),
                                     tags=getattr(operation, "tags", []) or [],
                                     parameters=parameters,
@@ -610,6 +613,18 @@ class OpenAPIParser(
 
         logger.info(f"Finished parsing. Extracted {len(routes)} HTTP routes.")
         return routes
+
+
+def get_title_from_request_body(request_body_info: RequestBodyInfo) -> str:
+    try:
+        if request_body_info and request_body_info.content_schema:
+            t = request_body_info.content_schema.get("application/json")
+            if t:
+                return t.get("title", "")
+        return ""
+    except Exception:
+        logger.warning(f"Failed to get title from request body: {request_body_info}")
+        return ""
 
 
 def clean_schema_for_display(schema: JsonSchema | None) -> JsonSchema | None:
