@@ -366,7 +366,7 @@ class OpenAPIParser(
 
         return extracted_params
 
-    def _extract_request_body(self, request_body_or_ref: Any) -> RequestBodyInfo | None:
+    def _extract_request_body( self, request_body_or_ref: Any) -> list[RequestBodyInfo] | None:
         """Extract and resolve request body information."""
         if not request_body_or_ref:
             return None
@@ -379,12 +379,7 @@ class OpenAPIParser(
                     f"Expected RequestBody after resolving, got {type(request_body)}. Returning None."
                 )
                 return None
-
-            # Create request body info
-            request_body_info = RequestBodyInfo(
-                required=request_body.required,
-                description=request_body.description,
-            )
+            request_body_infos: list[RequestBodyInfo] = []
 
             # Extract content schemas
             if hasattr(request_body, "content") and request_body.content:
@@ -395,18 +390,42 @@ class OpenAPIParser(
                         and media_type_obj.media_type_schema
                     ):
                         try:
-                            schema_dict = self._extract_schema_as_dict(
-                                media_type_obj.media_type_schema
-                            )
-                            request_body_info.content_schema[media_type_str] = (
-                                schema_dict
-                            )
+                            if (
+                                hasattr(media_type_obj.media_type_schema, "oneOf")
+                                and media_type_obj.media_type_schema.oneOf
+                            ):
+                                for ref_data in media_type_obj.media_type_schema.oneOf:
+                                    schema_dict = self._extract_schema_as_dict(ref_data)
+                                    # Create request body info
+                                    request_body_info = RequestBodyInfo(
+                                        required=request_body.required,
+                                        description=request_body.description,
+                                    )
+                                    request_body_info.content_schema[media_type_str] = (
+                                        schema_dict
+                                    )
+                                    request_body_infos.append(request_body_info)
+                                pass
+                            else:
+                                schema_dict = self._extract_schema_as_dict(
+                                    media_type_obj.media_type_schema
+                                )
+                                # Create request body info
+                                request_body_info = RequestBodyInfo(
+                                    required=request_body.required,
+                                    description=request_body.description,
+                                )
+                                request_body_info.content_schema[media_type_str] = (
+                                    schema_dict
+                                )
+                                request_body_infos.append(request_body_info)
+                                pass
                         except Exception as e:
                             logger.error(
                                 f"Failed to extract schema for media type '{media_type_str}': {e}"
                             )
 
-            return request_body_info
+            return request_body_infos
         except Exception as e:
             ref_name = getattr(request_body_or_ref, "ref", "unknown")
             logger.error(
@@ -533,27 +552,52 @@ class OpenAPIParser(
                             getattr(operation, "parameters", None), path_level_params
                         )
 
-                        request_body_info = self._extract_request_body(
+                        request_body_infos = self._extract_request_body(
                             getattr(operation, "requestBody", None)
                         )
 
                         responses = self._extract_responses(
                             getattr(operation, "responses", None)
                         )
+                        if request_body_infos and len(request_body_infos) > 1:
+                            logger.warning(
+                                f"Multiple request bodies found for operation {path_str}. "
+                            )
+                            for i, request_body_info in enumerate(request_body_infos):
+                                route = HTTPRoute(
+                                    path=path_str,
+                                    method=method_upper,  # type: ignore[arg-type]  # Known valid HTTP method
+                                    operation_id=getattr(
+                                        operation, "operationId", None
+                                    ),
+                                    summary=getattr(operation, "summary", None),
+                                    description=getattr(operation, "description", None),
+                                    tags=getattr(operation, "tags", []) or [],
+                                    parameters=parameters,
+                                    request_body=request_body_info,
+                                    responses=responses,
+                                    schema_definitions=schema_definitions,
+                                )
+                                routes.append(route)
+                        else:
+                            request_body_info = None
+                            if request_body_infos:
+                                request_body_info = request_body_infos[0]
+                            route = HTTPRoute(
+                                path=path_str,
+                                method=method_upper,  # type: ignore[arg-type]  # Known valid HTTP method
+                                operation_id=getattr(operation, "operationId", None),
+                                summary=getattr(operation, "summary", None),
+                                description=getattr(operation, "description", None),
+                                tags=getattr(operation, "tags", []) or [],
+                                parameters=parameters,
+                                request_body=request_body_info,
+                                responses=responses,
+                                schema_definitions=schema_definitions,
+                            )
+                            routes.append(route)
+                            pass
 
-                        route = HTTPRoute(
-                            path=path_str,
-                            method=method_upper,  # type: ignore[arg-type]  # Known valid HTTP method
-                            operation_id=getattr(operation, "operationId", None),
-                            summary=getattr(operation, "summary", None),
-                            description=getattr(operation, "description", None),
-                            tags=getattr(operation, "tags", []) or [],
-                            parameters=parameters,
-                            request_body=request_body_info,
-                            responses=responses,
-                            schema_definitions=schema_definitions,
-                        )
-                        routes.append(route)
                         logger.info(
                             f"Successfully extracted route: {method_upper} {path_str}"
                         )
@@ -901,6 +945,7 @@ def _replace_ref_with_defs(
     if ref_path := schema.get("$ref"):
         if ref_path.startswith("#/components/schemas/"):
             schema_name = ref_path.split("/")[-1]
+            schema_name = unquote(schema_name)
             schema["$ref"] = f"#/$defs/{schema_name}"
     elif properties := schema.get("properties"):
         if "$ref" in properties:

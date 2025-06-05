@@ -720,6 +720,7 @@ class FastMCPOpenAPI(FastMCP):
         self._route_map_fn = route_map_fn
         self._mcp_component_fn = mcp_component_fn
         self._mcp_names = mcp_names or {}
+        self._generate_names = {}
 
         # Keep track of names to detect collisions
         self._used_names = {
@@ -792,6 +793,11 @@ class FastMCPOpenAPI(FastMCP):
         # Truncate to 56 characters maximum
         if len(name) > 56:
             name = name[:56]
+        count = 0
+        while name in self._generate_names:
+            count += 1
+            name = f"{name}{count}"
+        self._generate_names[name] = name
 
         return name
 
