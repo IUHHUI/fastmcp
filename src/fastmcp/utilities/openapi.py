@@ -856,81 +856,81 @@ def format_description_with_responses(
                                 f"\n- **{prop_name}**{req_mark}: {prop_schema['description']}"
                             )
 
-    # Add response information
-    if responses:
-        response_section = "\n\n**Responses:**"
-        added_response_section = False
+    # # Add response information
+    # if responses:
+    #     response_section = "\n\n**Responses:**"
+    #     added_response_section = False
 
-        # Determine success codes (common ones)
-        success_codes = {"200", "201", "202", "204"}  # As strings
-        success_status = next((s for s in success_codes if s in responses), None)
+    #     # Determine success codes (common ones)
+    #     success_codes = {"200", "201", "202", "204"}  # As strings
+    #     success_status = next((s for s in success_codes if s in responses), None)
 
-        # Process all responses
-        responses_to_process = responses.items()
+    #     # Process all responses
+    #     responses_to_process = responses.items()
 
-        for status_code, resp_info in sorted(responses_to_process):
-            if not added_response_section:
-                desc_parts.append(response_section)
-                added_response_section = True
+    #     for status_code, resp_info in sorted(responses_to_process):
+    #         if not added_response_section:
+    #             desc_parts.append(response_section)
+    #             added_response_section = True
 
-            status_marker = " (Success)" if status_code == success_status else ""
-            desc_parts.append(
-                f"\n- **{status_code}**{status_marker}: {resp_info.description or 'No description.'}"
-            )
+    #         status_marker = " (Success)" if status_code == success_status else ""
+    #         desc_parts.append(
+    #             f"\n- **{status_code}**{status_marker}: {resp_info.description or 'No description.'}"
+    #         )
 
-            # Process content schemas for this response
-            if resp_info.content_schema:
-                # Prioritize json, then take first available
-                media_type = (
-                    "application/json"
-                    if "application/json" in resp_info.content_schema
-                    else next(iter(resp_info.content_schema), None)
-                )
+    #         # Process content schemas for this response
+    #         if resp_info.content_schema:
+    #             # Prioritize json, then take first available
+    #             media_type = (
+    #                 "application/json"
+    #                 if "application/json" in resp_info.content_schema
+    #                 else next(iter(resp_info.content_schema), None)
+    #             )
 
-                if media_type:
-                    schema = resp_info.content_schema.get(media_type)
-                    desc_parts.append(f"  - Content-Type: `{media_type}`")
+    #             if media_type:
+    #                 schema = resp_info.content_schema.get(media_type)
+    #                 desc_parts.append(f"  - Content-Type: `{media_type}`")
 
-                    # Add response property descriptions
-                    if isinstance(schema, dict):
-                        # Handle array responses
-                        if schema.get("type") == "array" and "items" in schema:
-                            items_schema = schema["items"]
-                            if (
-                                isinstance(items_schema, dict)
-                                and "properties" in items_schema
-                            ):
-                                desc_parts.append("\n  - **Response Item Properties:**")
-                                for prop_name, prop_schema in items_schema[
-                                    "properties"
-                                ].items():
-                                    if (
-                                        isinstance(prop_schema, dict)
-                                        and "description" in prop_schema
-                                    ):
-                                        desc_parts.append(
-                                            f"\n    - **{prop_name}**: {prop_schema['description']}"
-                                        )
-                        # Handle object responses
-                        elif "properties" in schema:
-                            desc_parts.append("\n  - **Response Properties:**")
-                            for prop_name, prop_schema in schema["properties"].items():
-                                if (
-                                    isinstance(prop_schema, dict)
-                                    and "description" in prop_schema
-                                ):
-                                    desc_parts.append(
-                                        f"\n    - **{prop_name}**: {prop_schema['description']}"
-                                    )
+    #                 # Add response property descriptions
+    #                 if isinstance(schema, dict):
+    #                     # Handle array responses
+    #                     if schema.get("type") == "array" and "items" in schema:
+    #                         items_schema = schema["items"]
+    #                         if (
+    #                             isinstance(items_schema, dict)
+    #                             and "properties" in items_schema
+    #                         ):
+    #                             desc_parts.append("\n  - **Response Item Properties:**")
+    #                             for prop_name, prop_schema in items_schema[
+    #                                 "properties"
+    #                             ].items():
+    #                                 if (
+    #                                     isinstance(prop_schema, dict)
+    #                                     and "description" in prop_schema
+    #                                 ):
+    #                                     desc_parts.append(
+    #                                         f"\n    - **{prop_name}**: {prop_schema['description']}"
+    #                                     )
+    #                     # Handle object responses
+    #                     elif "properties" in schema:
+    #                         desc_parts.append("\n  - **Response Properties:**")
+    #                         for prop_name, prop_schema in schema["properties"].items():
+    #                             if (
+    #                                 isinstance(prop_schema, dict)
+    #                                 and "description" in prop_schema
+    #                             ):
+    #                                 desc_parts.append(
+    #                                     f"\n    - **{prop_name}**: {prop_schema['description']}"
+    #                                 )
 
-                    # Generate Example
-                    if schema:
-                        example = generate_example_from_schema(schema)
-                        if example != "unknown_type" and example is not None:
-                            desc_parts.append("\n  - **Example:**")
-                            desc_parts.append(
-                                format_json_for_description(example, indent=2)
-                            )
+    #                 # Generate Example
+    #                 if schema:
+    #                     example = generate_example_from_schema(schema)
+    #                     if example != "unknown_type" and example is not None:
+    #                         desc_parts.append("\n  - **Example:**")
+    #                         desc_parts.append(
+    #                             format_json_for_description(example, indent=2)
+    #                         )
 
     return "\n".join(desc_parts)
 
