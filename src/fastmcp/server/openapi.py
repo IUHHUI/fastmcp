@@ -781,7 +781,11 @@ class FastMCPOpenAPI(FastMCP):
                 # If there's a double underscore in the operationId, use the first part
                 name = route.operation_id.split("__")[0]
         else:
-            name = route.summary or f"{route.method}_{route.path}"
+            # 保留2.4.0 名称规则.
+            # Use operation_id if available, otherwise generate a name
+            path_parts = route.path.strip("/").split("/")
+            path_name = "_".join(p for p in path_parts if not p.startswith("{"))
+            name = f"{route.method.lower()}_{path_name}"
 
         name = _slugify(name)
 
