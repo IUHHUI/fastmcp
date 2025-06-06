@@ -1028,6 +1028,22 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
 
         # Add request body properties
         for prop_name, prop_schema in body_props.items():
+            if "description" in prop_schema and prop_schema["description"]:
+                if "title" in prop_schema and prop_schema["title"]:
+                    # combine title and description as description
+                    prop_schema["description"] = (
+                        prop_schema["title"] + " " + prop_schema["description"]
+                    )
+                    pass
+                pass
+            else:
+                # add description instead of title
+                title_str: str = prop_schema["title"]
+                if title_str:
+                    prop_schema["description"] = title_str
+                    prop_schema["title"] = title_str.strip().split(" ")[0]
+                    pass
+                pass
             properties[prop_name] = prop_schema
 
         if route.request_body.required:
