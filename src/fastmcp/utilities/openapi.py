@@ -406,6 +406,21 @@ class OpenAPIParser(
                                     )
                                     request_body_infos.append(request_body_info)
                                 pass
+                            elif (
+                                hasattr(media_type_obj.media_type_schema, "anyOf")
+                                and media_type_obj.media_type_schema.anyOf
+                            ):
+                                for ref_data in media_type_obj.media_type_schema.anyOf:
+                                    schema_dict = self._extract_schema_as_dict(ref_data)
+                                    # Create request body info
+                                    request_body_info = RequestBodyInfo(
+                                        required=request_body.required,
+                                        description=request_body.description,
+                                    )
+                                    request_body_info.content_schema[media_type_str] = (
+                                        schema_dict
+                                    )
+                                    request_body_infos.append(request_body_info)
                             else:
                                 schema_dict = self._extract_schema_as_dict(
                                     media_type_obj.media_type_schema
