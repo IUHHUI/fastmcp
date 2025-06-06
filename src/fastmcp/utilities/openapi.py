@@ -1038,10 +1038,12 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
                 pass
             else:
                 # add description instead of title
-                title_str: str = prop_schema["title"]
-                if title_str:
-                    prop_schema["description"] = title_str
-                    prop_schema["title"] = title_str.strip().split(" ")[0]
+                if "title" in prop_schema and prop_schema["title"]:
+                    title_str: str = prop_schema["title"]
+                    if title_str:
+                        prop_schema["description"] = title_str
+                        prop_schema["title"] = title_str.strip().split(" ")[0]
+                        pass
                     pass
                 pass
             properties[prop_name] = prop_schema
