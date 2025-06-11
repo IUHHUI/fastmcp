@@ -1050,6 +1050,10 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
 
         if route.request_body.required:
             required.extend(body_schema.get("required", []))
+        else:
+            required_items = body_schema.get("required", [])
+            if required_items:
+                required.extend(required_items)
 
     result = {
         "type": "object",
