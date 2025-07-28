@@ -408,6 +408,8 @@ class OpenAPITool(Tool):
         # Add headers from the current MCP client HTTP request (these take precedence)
         mcp_headers = get_http_headers()
         headers.update(mcp_headers)
+        # Always accept all
+        headers['accept']='*/*'
 
         # Prepare request body
         json_data = None
