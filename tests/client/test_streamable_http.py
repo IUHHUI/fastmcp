@@ -3,9 +3,10 @@ import json
 import sys
 from collections.abc import Generator
 
+import httpx
 import pytest
 import uvicorn
-from mcp import McpError
+from mcp import McpError, types
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
@@ -16,9 +17,9 @@ from fastmcp.server.server import FastMCP
 from fastmcp.utilities.tests import run_server_in_process
 
 
-def fastmcp_server():
+def fastmcp_server(**settings):
     """Fixture that creates a FastMCP server with tools, resources, and prompts."""
-    server = FastMCP("TestServer")
+    server = FastMCP("TestServer", **settings)
 
     # Add a tool
     @server.tool
@@ -67,6 +68,10 @@ def run_server(host: str, port: int, **kwargs) -> None:
     fastmcp_server().run(host=host, port=port, **kwargs)
 
 
+def run_stateless_server(host: str, port: int, **kwargs) -> None:
+    fastmcp_server(stateless_http=True).run(host=host, port=port, **kwargs)
+
+
 def run_nested_server(host: str, port: int) -> None:
     mcp_app = fastmcp_server().http_app(path="/final/mcp")
 
@@ -93,10 +98,47 @@ def streamable_http_server() -> Generator[str, None, None]:
         yield f"{url}/mcp"
 
 
+@pytest.fixture(scope="module")
+def stateless_streamable_http_server() -> Generator[str, None, None]:
+    with run_server_in_process(
+        run_stateless_server, transport="streamable-http"
+    ) as url:
+        yield f"{url}/mcp"
+
+
 async def test_ping(streamable_http_server: str):
     """Test pinging the server."""
     async with Client(
         transport=StreamableHttpTransport(streamable_http_server)
+    ) as client:
+        result = await client.ping()
+        assert result is True
+
+
+async def test_invalid_client_request_does_not_stop_server(
+    stateless_streamable_http_server: str,
+):
+    """Invalid MCP requests should return an error without killing the task group."""
+    headers = {"Accept": "application/json, text/event-stream"}
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 100,
+        "method": "greet",
+        "params": {"name": "Ada"},
+    }
+
+    async with httpx.AsyncClient(timeout=5.0) as raw_client:
+        response = await raw_client.post(
+            stateless_streamable_http_server + "/",
+            json=payload,
+            headers=headers,
+        )
+
+    assert response.status_code in {200, 202}
+    assert str(types.INVALID_REQUEST).encode() in response.content
+
+    async with Client(
+        transport=StreamableHttpTransport(stateless_streamable_http_server)
     ) as client:
         result = await client.ping()
         assert result is True
